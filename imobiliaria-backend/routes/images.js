@@ -1,38 +1,34 @@
 const express = require("express");
 const router = express.Router();
+const cloudinary = require("cloudinary").v2;
 const authMiddleware = require("../middleware/authMiddleware");
-const { createClient } = require("@supabase/supabase-js");
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const pool = require("../db");
 
 // ============================
 // DELETAR IMAGEM POR ID
 // ============================
 router.delete("/:id", authMiddleware, async (req, res) => {
-  const imageId = req.params.id;
+  try {
+    const { rows } = await pool.query(
+      "SELECT * FROM property_images WHERE id = $1",
+      [req.params.id]
+    );
+    const image = rows[0];
 
-  const { data: image } = await supabase
-    .from("property_images")
-    .select("*")
-    .eq("id", imageId)
-    .single();
+    if (!image) return res.status(404).json({ error: "Imagem não encontrada" });
 
-  if (!image) return res.status(404).json({ error: "Imagem não encontrada" });
+    // Remove do Cloudinary
+    if (image.cloudinary_public_id) {
+      await cloudinary.uploader.destroy(image.cloudinary_public_id);
+    }
 
-  // Extrai o caminho dentro do bucket a partir da URL pública
-  const urlParts = image.image_url.split("/storage/v1/object/public/properties/");
-  const filePath = urlParts[1];
+    await pool.query("DELETE FROM property_images WHERE id = $1", [req.params.id]);
 
-  if (filePath) {
-    await supabase.storage.from("properties").remove([filePath]);
+    res.json({ message: "Imagem removida" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao remover imagem" });
   }
-
-  await supabase.from("property_images").delete().eq("id", imageId);
-
-  res.json({ message: "Imagem removida" });
 });
 
 module.exports = router;

@@ -1,11 +1,19 @@
 const express = require("express");
 const cors = require("cors");
+const cloudinary = require("cloudinary").v2;
 require("dotenv").config();
+
+// Configura Cloudinary globalmente
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app = express();
 
 // =====================================
-// CORS — aceita frontend do Render + local
+// CORS — aceita frontend do Railway + local
 // =====================================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
